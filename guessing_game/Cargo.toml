@@ -5,3 +5,5 @@ authors = ["c10t <c10t@fa.ke>"]
 edition = "2018"
 
 [dependencies]
+
+rand = "0.3.14"
