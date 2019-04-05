@@ -19,6 +19,23 @@ fn main() {
 fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 512];
     stream.read(&mut buffer).unwrap();
+
     // it will replace the invalid sequence with �, the U+FFFD REPLACEMENT CHARACTER. 
-    println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+    // println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+
+    // HTTP REQUEST FORMAT:
+    //
+    // Method Request-URI HTTP-Version CRLF
+    // headers CRLF
+    // message-body
+    
+    // HTTP RESPONSE FORMAT:
+    //
+    // HTTP-Version Status-Code Reason-Phrase CRLF
+    // headers CRLF
+    // message-body
+    let response = "HTTP/1.1 200 OK\r\n\r\n";
+
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
 }
