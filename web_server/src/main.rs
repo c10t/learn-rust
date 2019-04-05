@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::net::TcpListener;
@@ -28,13 +29,18 @@ fn handle_connection(mut stream: TcpStream) {
     // Method Request-URI HTTP-Version CRLF
     // headers CRLF
     // message-body
+
+    let mut file = File::open("hello.html").unwrap();
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
     
     // HTTP RESPONSE FORMAT:
     //
     // HTTP-Version Status-Code Reason-Phrase CRLF
     // headers CRLF
     // message-body
-    let response = "HTTP/1.1 200 OK\r\n\r\n";
+    let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", contents);
 
     stream.write(response.as_bytes()).unwrap();
     stream.flush().unwrap();
