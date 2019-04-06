@@ -5,7 +5,12 @@ use std::thread;
 
 pub struct ThreadPool {
   workers: Vec<Worker>,
-  sender: mpsc::Sender<Job>,
+  sender: mpsc::Sender<Message>,
+}
+
+enum Message {
+  NewJob(Job),
+  Terminate,
 }
 
 // work around:
@@ -66,7 +71,7 @@ impl ThreadPool {
       F: FnOnce() + Send + 'static
   {
     let job = Box::new(f);
-    self.sender.send(job).unwrap();
+    self.sender.send(Message::NewJob(job)).unwrap();
   }
 }
 
@@ -80,11 +85,11 @@ impl ThreadPool {
 
 struct Worker {
   id: usize,
-  thread: thread::JoinHandle<()>,
+  thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
-  fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+  fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
     let thread = thread::spawn(move || {
       loop {
         // Acquiring a lock might fail if the mutex is in a _poisoned_ state,
@@ -102,8 +107,18 @@ impl Worker {
         // The call to `recv` blocks, so if there is no job yet,
         // the current thread will wait until a job becomes available.
         // The `Mutex<T>` ensures that only one `Worker` thread at a time is trying to request a job.
-        let job = receiver.lock().unwrap().recv().unwrap();
-        println!("Worker {} got a job; executing.", id);
+        let message = receiver.lock().unwrap().recv().unwrap();
+
+        match message {
+          Message::NewJob(job) => {
+            println!("Worker {} got a job; executing.", id);
+            job.call_box();
+          },
+          Message::Terminate => {
+            println!("Worker {} was told to terminate.", id);
+            break;
+          },
+        }
 
         // To call a `FnOnce` closure that is stored in a `Box<T>` (which is what our `Job` type alias is),
         // the closure needs to move itself _out_ of the Box<T> because the closure takes ownership of `self` when we call it.
@@ -121,13 +136,33 @@ impl Worker {
         // isn’t implemented using `self: Box<Self>`. 
         // So Rust doesn’t yet understand that it could use `self: Box<Self>` in this situation
         // to take ownership of the closure and move the closure out of the Box<T>.
-        job.call_box(); // change from (*job)();
+        // change from (*job)(); -> job.call_box(); 
       }
     });
 
     Worker {
       id,
-      thread,
+      thread: Some(thread),
+    }
+  }
+}
+
+impl Drop for ThreadPool {
+  fn drop(&mut self) {
+    println!("Sending terminate message to all workers.");
+
+    for _ in &mut self.workers {
+      self.sender.send(Message::Terminate).unwrap();
+    }
+
+    println!("Shutting down all workers.");
+
+    for worker in &mut self.workers {
+      println!("Shutting down worker {}", worker.id);
+
+      if let Some(thread) = worker.thread.take() {
+        thread.join().unwrap(); // cannot move out of borrowed content if didn't use Some
+      }
     }
   }
 }
