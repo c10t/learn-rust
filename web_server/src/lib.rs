@@ -8,6 +8,18 @@ pub struct ThreadPool {
   sender: mpsc::Sender<Job>,
 }
 
+// work around:
+// tell Rust explicitly that in this case 
+// we can take ownership of the value inside the Box<T> using self: Box<Self>
+trait FnBox {
+  fn call_box(self: Box<Self>);
+}
+
+impl<F: FnOnce()> FnBox for F {
+  fn call_box(self: Box<F>) {
+    (*self)()
+  }
+}
 
 // 1. The ThreadPool will create a channel and hold on to the sending side of the channel.
 // 2. Each Worker will hold on to the receiving side of the channel.
@@ -17,7 +29,7 @@ pub struct ThreadPool {
 //   and execute the closures of any jobs it receives.
 
 // “Creating Type Synonyms with Type Aliases” section of Chapter 19
-type Job = Box<FnOnce() + Send + 'static>;
+type Job = Box<FnBox + Send + 'static>;
 
 impl ThreadPool {
   /// Create a new ThreadPool.
@@ -109,7 +121,7 @@ impl Worker {
         // isn’t implemented using `self: Box<Self>`. 
         // So Rust doesn’t yet understand that it could use `self: Box<Self>` in this situation
         // to take ownership of the closure and move the closure out of the Box<T>.
-        (*job)();
+        job.call_box(); // change from (*job)();
       }
     });
 
