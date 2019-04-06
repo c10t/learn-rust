@@ -15,89 +15,91 @@ fn main() {
         input_buffer = input_buffer.trim_end().to_string();
 
         if input_buffer.starts_with(".") {
-            match do_meta_command(input_buffer) {
-                META_COMMAND_RESULT::SUCCESS => {
+            match do_meta_command(&input_buffer) {
+                MetaCommandResult::Exit => {
+                    // https://doc.rust-lang.org/std/process/fn.exit.html
+                    process::exit(0);
+                }
+                MetaCommandResult::Success => {
                     input_buffer.clear();
                     continue;
                 },
-                META_COMMAND_RESULT::UNRECOGNIZED_COMMAND => {
-                    println!("Unrecognized command '{}'", input_buffer);
+                MetaCommandResult::UnrecognizedCommand(msg) => {
+                    println!("{}", msg);
                     input_buffer.clear();
                     continue;
                 },          
             };
         }
 
-        let mut statement = String::new();
-        match prepare_statement(input_buffer, &mut statement) {
-            PREPARE_RESULT::SUCCESS => (),
-            PREPARE_RESULT::UNRECOGNIZED_STATEMENT(msg) => {
-                println!(msg);
+        match prepare_statement(&input_buffer) {
+            PrepareResult::Success(statement) => {
+                execute_statement(&statement);
+            },
+            PrepareResult::UnrecognizedStatement(msg) => {
+                println!("{}", msg);
                 input_buffer.clear();
-                statement.clear();
                 continue;
-            }
+            },
         };
         input_buffer.clear();
 
-        execute_statement(&statement);
-
         println!("Executed");
-        statement.clear();
     }
 }
 
-enum META_COMMAND_RESULT {
-    SUCCESS,
-    UNRECOGNIZED_COMMAND(String)
+enum MetaCommandResult {
+    Success,
+    Exit,
+    UnrecognizedCommand(String)
 }
 
-enum PREPARE_RESULT {
-    SUCCESS,
-    UNRECOGNIZED_STATEMENT,
+enum PrepareResult {
+    Success(Statement),
+    UnrecognizedStatement(String),
 }
 
 fn print_prompt() {
     print!("db > ");
 }
 
-fn do_meta_command(input_buffer: &str) -> META_COMMAND_RESULT {
-    if command == ".exit" {
-        // https://doc.rust-lang.org/std/process/fn.exit.html
-        process::exit(0);
-        SUCCESS
+fn do_meta_command(input_buffer: &str) -> MetaCommandResult {
+    if input_buffer == ".exit" {
+        MetaCommandResult::Exit
+    } else if input_buffer == ".test" {
+        MetaCommandResult::Success
     } else {
-        UNRECOGNIZED_COMMAND(format!("Unrecognized keyword at start of '{}'", input_buffer))
+        MetaCommandResult::UnrecognizedCommand(format!("Unrecognized keyword at start of '{}'", input_buffer))
     }
 }
 
-enum StatementType {
-    STATEMENT_INSERT,
-    STATEMENT_SELECT,
+enum StatementMethod {
+    Insert,
+    Select,
 }
 
 struct Statement {
-    type: StatementType
+    method: StatementMethod
 }
 
-fn prepare_statement(input_buffer: &str, statement: &mut Statement) -> PREPARE_RESULT {
+fn prepare_statement(input_buffer: &str) -> PrepareResult {
     if input_buffer.starts_with("insert") {
-        statement = Statement { type: STATEMENT_INSERT };
-        SUCCESS
+        let statement = Statement { method: StatementMethod::Insert };
+        PrepareResult::Success(statement)
     } else if input_buffer.starts_with("select") {
-        statement = Statement { type: STATEMENT_SELECT };
-        SUCCESS
+        let statement = Statement { method: StatementMethod::Select };
+        PrepareResult::Success(statement)
     } else {
-        UNRECOGNIZED_STATEMENT
+        PrepareResult::UnrecognizedStatement(format!("Unrecognized command '{}'", input_buffer))
     }
 }
 
 fn execute_statement(statement: &Statement) {
-    match statement.type {
-        STATEMENT_INSERT => {
+    match statement.method {
+        StatementMethod::Insert => {
             println!("This is where we would do an insert.");
         },
-        STATEMENT_SELECT => {
+        StatementMethod::Select => {
             println!("This is where we would do a select.");
         },
     }
