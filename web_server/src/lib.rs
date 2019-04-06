@@ -15,7 +15,9 @@ pub struct ThreadPool {
 // 4. The execute method will send the job it wants to execute down the sending side of the channel.
 // 5. In its thread, the Worker will loop over its receiving side of the channel
 //   and execute the closures of any jobs it receives.
-struct Job;
+
+// “Creating Type Synonyms with Type Aliases” section of Chapter 19
+type Job = Box<FnOnce() + Send + 'static>;
 
 impl ThreadPool {
   /// Create a new ThreadPool.
@@ -51,7 +53,8 @@ impl ThreadPool {
     where
       F: FnOnce() + Send + 'static
   {
-
+    let job = Box::new(f);
+    self.sender.send(job).unwrap();
   }
 }
 
@@ -70,8 +73,44 @@ struct Worker {
 
 impl Worker {
   fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
-    let thread = thread::spawn(|| {
-      receiver;
+    let thread = thread::spawn(move || {
+      loop {
+        // Acquiring a lock might fail if the mutex is in a _poisoned_ state,
+        // which can happen if
+        // some other thread panicked while holding the lock
+        // rather than releasing the lock.
+        //
+        // In this situation,
+        // calling unwrap to have this thread panic is the correct action to take.
+
+        // A final unwrap moves past any errors here as well,
+        // which might occur if the thread holding the sending side of the channel has shut down,
+        // similar to how the send method returns Err if the receiving side shuts down.
+
+        // The call to `recv` blocks, so if there is no job yet,
+        // the current thread will wait until a job becomes available.
+        // The `Mutex<T>` ensures that only one `Worker` thread at a time is trying to request a job.
+        let job = receiver.lock().unwrap().recv().unwrap();
+        println!("Worker {} got a job; executing.", id);
+
+        // To call a `FnOnce` closure that is stored in a `Box<T>` (which is what our `Job` type alias is),
+        // the closure needs to move itself _out_ of the Box<T> because the closure takes ownership of `self` when we call it.
+        //
+        // In general, Rust doesn’t allow us to move a value out of a `Box<T>`
+        // because Rust doesn’t know how big the value inside the `Box<T>` will be:
+        // recall in Chapter 15 that we used `Box<T>` precisely
+        // because we had something of an unknown size
+        // that we wanted to store in a `Box<T>` to get a value of a known size.
+        //
+        // As you saw in Listing 17-15, we can write methods that use the syntax `self: Box<Self>`,
+        // which allows the method to take ownership of a `Self` value stored in a `Box<T>`.
+        // That’s exactly what we want to do here, but unfortunately Rust won’t let us:
+        // the part of Rust that implements behavior when a closure is called
+        // isn’t implemented using `self: Box<Self>`. 
+        // So Rust doesn’t yet understand that it could use `self: Box<Self>` in this situation
+        // to take ownership of the closure and move the closure out of the Box<T>.
+        (*job)();
+      }
     });
 
     Worker {
