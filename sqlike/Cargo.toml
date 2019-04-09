@@ -5,3 +5,4 @@ authors = ["c10t <c10t@fa.ke>"]
 edition = "2018"
 
 [dependencies]
+scan_fmt = "0.1.3"

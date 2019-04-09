@@ -1,0 +1,16 @@
+error[E0507]: cannot move out of borrowed content
+   --> src\main.rs:132:11
+    |
+132 |     match statement.method {
+    |           ^^^^^^^^^^^^^^^^
+    |           |
+    |           cannot move out of borrowed content
+    |           help: consider borrowing here: `&statement.method`
+133 |         StatementMethod::Insert(_row) => {
+    |                                 ---- data moved here
+    |
+note: move occurs because `_row` has type `Row`, which does not implement the `Copy` trait
+   --> src\main.rs:133:33
+    |
+133 |         StatementMethod::Insert(_row) => {
+    |                                 ^^^^

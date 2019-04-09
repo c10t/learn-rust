@@ -2,6 +2,8 @@ use std::io;
 use std::io::Write;
 use std::process;
 
+#[macro_use] extern crate scan_fmt;
+
 // REMAIN TODO:
 // - Re-consider ownership
 // - Re-consider input buffer
@@ -45,6 +47,11 @@ fn main() {
                 input_buffer.clear();
                 continue;
             },
+            PrepareResult::SyntaxError(msg) => {
+                println!("{}", msg);
+                input_buffer.clear();
+                continue;
+            },
         };
         input_buffer.clear();
 
@@ -61,6 +68,7 @@ enum MetaCommandResult {
 enum PrepareResult {
     Success(Statement),
     UnrecognizedStatement(String),
+    SyntaxError(String)
 }
 
 fn print_prompt() {
@@ -78,7 +86,7 @@ fn do_meta_command(input_buffer: &str) -> MetaCommandResult {
 }
 
 enum StatementMethod {
-    Insert,
+    Insert(Row),
     Select,
 }
 
@@ -86,10 +94,32 @@ struct Statement {
     method: StatementMethod
 }
 
+// const uint32_t COLUMN_USERNAME_SIZE = 32;
+// const uint32_t COLUMN_EMAIL_SIZE = 255;
+// struct Row_t {
+//   uint32_t id;
+//   char username[COLUMN_USERNAME_SIZE];
+//   char email[COLUMN_EMAIL_SIZE];
+// };
+// typedef struct Row_t Row;
+struct Row {
+    id: usize,
+    username: String, // varchar(32)
+    email: String // varchar(255)
+}
+
 fn prepare_statement(input_buffer: &str) -> PrepareResult {
     if input_buffer.starts_with("insert") {
-        let statement = Statement { method: StatementMethod::Insert };
-        PrepareResult::Success(statement)
+        // use scan_fmt macro https://docs.rs/scan_fmt/0.1.3/scan_fmt/
+        let (id, username, email) = scan_fmt!(input_buffer, "insert {d} {} {}", usize, String, String);
+        match (id, username, email) {
+            (Some(id), Some(username), Some(email)) => {
+                let row_to_insert = Row { id, username, email };
+                let statement = Statement { method: StatementMethod::Insert(row_to_insert) };
+                PrepareResult::Success(statement)
+            },
+            _ => PrepareResult::SyntaxError(String::from("Invalid Arguments"))
+        }
     } else if input_buffer.starts_with("select") {
         let statement = Statement { method: StatementMethod::Select };
         PrepareResult::Success(statement)
@@ -99,8 +129,8 @@ fn prepare_statement(input_buffer: &str) -> PrepareResult {
 }
 
 fn execute_statement(statement: &Statement) {
-    match statement.method {
-        StatementMethod::Insert => {
+    match &statement.method {
+        StatementMethod::Insert(_row) => {
             println!("This is where we would do an insert.");
         },
         StatementMethod::Select => {
