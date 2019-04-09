@@ -2,6 +2,10 @@ use std::io;
 use std::io::Write;
 use std::process;
 
+// REMAIN TODO:
+// - Re-consider ownership
+// - Re-consider input buffer
+// - Extract to lib.rs
 fn main() {
     // Not implemented input buffer: https://cstack.github.io/db_tutorial/parts/part1.html
     let mut input_buffer = String::new();
