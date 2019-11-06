@@ -1,8 +1,9 @@
+use std::cmp::Ordering;
 use super::SortOrder;
 
 pub fn sort_by<T, F>(x: &mut [T], comparator: &F) -> Result<(), String>
   where F: Fn(&T, &T) -> Ordering {
-    if is_power_of_two(x.len()) {
+    if x.len().is_power_of_two() {
       do_sort(x, true, comparator);
       Ok(())
     } else {
@@ -37,11 +38,16 @@ fn sub_sort<T, F>(x: &mut [T], forward: bool, comparator: &F)
   }
 }
 
-fn compare_and_swap<T: Ord>(x: &mut [T], forward: bool, comparator: &F)
+fn compare_and_swap<T, F>(x: &mut [T], forward: bool, comparator: &F)
   where F: Fn(&T, &T) -> Ordering {
+  let swap_condition = if forward {
+    Ordering::Greater
+  } else {
+    Ordering::Less
+  };
   let mid_point = x.len() / 2;
   for i in 0..mid_point {
-    if (x[i] > x[mid_point + i]) == up {
+    if comparator(&x[i], &x[mid_point + i]) == swap_condition {
       x.swap(i, mid_point + i);
     }
   }
@@ -49,9 +55,10 @@ fn compare_and_swap<T: Ord>(x: &mut [T], forward: bool, comparator: &F)
 
 #[cfg(test)]
 mod tests {
-  use super::{is_power_of_two, sort, sort_by};
+  use super::{sort, sort_by};
   use crate::SortOrder::*;
 
+  #[derive(Debug, PartialEq)]
   struct Student {
     first_name: String,
     last_name: String,
@@ -81,9 +88,9 @@ mod tests {
     assert_eq!(
       sort_by(&mut x, &|a, b| a.age.cmp(&b.age)),
       Ok(())
-    )
+    );
 
-    assert_eq!(x, expected)
+    assert_eq!(x, expected);
   }
 
   #[test]
@@ -94,7 +101,7 @@ mod tests {
     let ryosuke = Student::new("Ryosuke", "Hayashi", 17);
 
     let mut x = vec![&taro, &hanako, &kyoko, &ryosuke];
-    let expected = vec![&hanako, &kyoko, &taro, &ryosuke];
+    let expected = vec![&ryosuke, &kyoko, &hanako, &taro];
 
     assert_eq!(
       sort_by(&mut x,
@@ -102,9 +109,9 @@ mod tests {
           || a.first_name.cmp(&b.first_name)
         )),
       Ok(())
-    )
+    );
 
-    assert_eq!(x, expected)
+    assert_eq!(x, expected);
   }
 
   #[test]
