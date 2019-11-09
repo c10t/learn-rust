@@ -25,14 +25,18 @@ fn do_sort<T, F>(x: &mut [T], forward: bool, comparator: &F)
   where T: Send, F: Sync + Fn(&T, &T) -> Ordering {
   if x.len() > 1 {
     let mid_point = x.len() / 2;
+    // NG! error[E0499]: cannot borrow `*x` as mutable more than once at a time
+    // let first = &mut x[..mid_point];
+    // let second = &mut x[mid_point..];
+    let (first, second) = x.split_at_mut(mid_point);
     if mid_point >= PARALLEL_THRESHOLD {
       rayon::join(
-        || do_sort(&mut x[..mid_point], true, comparator),
-        || do_sort(&mut x[mid_point..], false, comparator),
+        || do_sort(first, true, comparator),
+        || do_sort(second, false, comparator),
       );
     } else {
-      do_sort(&mut x[..mid_point], true, comparator);
-      do_sort(&mut x[mid_point..], false, comparator);
+      do_sort(first, true, comparator);
+      do_sort(second, false, comparator);
     }
     sub_sort(x, forward, comparator);
   }
