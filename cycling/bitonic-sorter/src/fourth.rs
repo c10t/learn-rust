@@ -5,7 +5,7 @@ use super::SortOrder;
 const PARALLEL_THRESHOLD: usize = 4096;
 
 pub fn sort_by<T, F>(x: &mut [T], comparator: &F) -> Result<(), String>
-  where F: Fn(&T, &T) -> Ordering {
+  where T: Send, F: Sync + Fn(&T, &T) -> Ordering {
     if x.len().is_power_of_two() {
       do_sort(x, true, comparator);
       Ok(())
@@ -14,7 +14,7 @@ pub fn sort_by<T, F>(x: &mut [T], comparator: &F) -> Result<(), String>
     }
   }
 
-pub fn sort<T: Ord>(x: &mut [T], order: &SortOrder) -> Result<(), String> {
+pub fn sort<T: Ord + Send>(x: &mut [T], order: &SortOrder) -> Result<(), String> {
     match *order {
       SortOrder::Ascending => sort_by(x, &|a, b| a.cmp(b)),
       SortOrder::Descending => sort_by(x, &|a, b| b.cmp(a)),
@@ -22,7 +22,7 @@ pub fn sort<T: Ord>(x: &mut [T], order: &SortOrder) -> Result<(), String> {
 }
 
 fn do_sort<T, F>(x: &mut [T], forward: bool, comparator: &F)
-  where F: Fn(&T, &T) -> Ordering {
+  where T: Send, F: Sync + Fn(&T, &T) -> Ordering {
   if x.len() > 1 {
     let mid_point = x.len() / 2;
     if mid_point >= PARALLEL_THRESHOLD {
