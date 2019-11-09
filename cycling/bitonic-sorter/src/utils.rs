@@ -15,6 +15,7 @@ pub fn is_sorted_descending<T: Ord>(x: &[T]) -> bool {
   x.windows(2).all(|pair| pair[0] >= pair[1])
 }
 
+#[cfg(test)]  // https://users.rust-lang.org/t/unused-import-warning/20251
 mod tests {
   use crate::utils::{new_u32_vec, is_sorted_ascending, is_sorted_descending};
   use crate::SortOrder::{Ascending, Descending};
